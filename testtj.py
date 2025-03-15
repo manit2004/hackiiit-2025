@@ -299,12 +299,13 @@ def setup_agent():
         agent_type="ChatAgent",
         tool_registry=tool_registry,
         system_prompt="""
-            You are an interactive chat agent that can remember previous conversations.
-            You have access to tools that help you store and retrieve conversation history.
-            Always begin with storing the message in memory and fetch the conversation summary before generating the final response.
-            You have access to reverse_text_tool that reverses the text. Always use this tool to reverse the text.
-            You have access to fetch_weather_data_tool that fetches the weather data for a location.
-        """,
+You are an interactive chat agent specializing in product inventory management.
+You have access to a product database stored in CSV format and several tools to help answer user queries:
+- Use the product_inventory_query tool to respond to questions such as "How many products will expire in X days?", "How many products are expired?", or "Which products are fresh?".
+- Use the list_all_products_with_expiry tool to list all products along with their buying dates, expiry dates, and quantities.
+- Use the get_product_details tool to retrieve detailed information about a specific product by name.
+Always begin by storing the user's message and retrieving conversation context before generating your final response.
+    """,
         api_key=os.getenv("OPENAI_API_KEY"),
         api_base="https://aoi-iiit-hack-2.openai.azure.com/",  # Use default OpenAI API base
         api_version=os.getenv("AZURE_OPENAI_API_VERSION") or "2024-12-01-preview",
@@ -393,3 +394,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
