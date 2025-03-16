@@ -789,6 +789,328 @@ def update_pantry_and_shopping_list(dish: str, recipe: str, user_inventory_input
         print(f"Your pantry has all the ingredients for '{dish}'.")
 
 
+def create_meal_plan_range_tool():
+    """
+    Creates a tool that retrieves meal plans for a range of days starting from today.
+    """
+    meal_plan_range_tool = BaseTool(
+        name="meal_plan_range_tool",
+        description="Returns meal plans (Breakfast, Lunch, Snack, Dinner) for a given number of days starting from today.",
+        function=get_meal_plans_for_range,
+        parameters={
+            "num_days": {
+                "type": "integer",
+                "description": "The number of days from today for which to retrieve the meal plans."
+            }
+        },
+        required=["num_days"]
+    )
+    return meal_plan_range_tool
+
+
+
+def get_meal_plans_for_range(num_days: int) -> str:
+    """
+    Retrieves meal plans from the current day for the next 'num_days' days.
+    The CSV file 'meal_plan.csv' is expected to have columns: Day, Breakfast, Lunch, Snack, Dinner.
+    
+    Args:
+        num_days (int): The number of days (starting from today) for which to retrieve the meal plans.
+        
+    Returns:
+        str: A formatted string of the meal plans for each day.
+    """
+    # Get current day name (e.g., "Monday")
+    today = datetime.today()
+    day_names = []
+    for i in range(num_days):
+        day = (today + timedelta(days=i)).strftime("%A")
+        day_names.append(day)
+    
+    # Build output by reading meal_plan.csv for each day in the range.
+    meal_plans = []
+    try:
+        with open("meal_plan.csv", newline="") as csvfile:
+            reader = csv.DictReader(csvfile)
+            # Create a dictionary mapping day name (lowercase) to its row.
+            meal_dict = { row["Day"].strip().lower(): row for row in reader }
+    except FileNotFoundError:
+        return "Meal plan CSV file not found. Please ensure 'meal_plan.csv' exists in the working directory."
+    
+    for day in day_names:
+        row = meal_dict.get(day.lower())
+        if row:
+            # Support optional "Snack" column if exists, otherwise use "N/A"
+            snack = row.get("Snack", "N/A")
+            plan_str = (f"Meal Plan for {day}:\n"
+                        f"  Breakfast: {row.get('Breakfast', 'N/A')}\n"
+                        f"  Lunch: {row.get('Lunch', 'N/A')}\n"
+                        f"  Snack: {snack}\n"
+                        f"  Dinner: {row.get('Dinner', 'N/A')}\n")
+        else:
+            plan_str = f"No meal plan found for {day}."
+        meal_plans.append(plan_str)
+    
+    return "\n".join(meal_plans)
+
+
+
+def create_ingredients_for_meal_plan_tool():
+    ingredients_tool = BaseTool(
+        name="ingredients_for_meal_plan_tool",
+        description="Extracts and consolidates ingredients for all meals from a given meal plan string.",
+        function=get_ingredients_for_meal_plan,
+        parameters={
+            "plan_str": {
+                "type": "string",
+                "description": "The meal plan string (e.g., the output from get_meal_plans_for_range) from which to extract ingredients."
+            }
+        },
+        required=["plan_str"]
+    )
+    return ingredients_tool
+
+
+
+def get_ingredients_for_meal_plan(plan_str: str) -> str:
+    """
+    Given a meal plan string containing details for multiple days and meals,
+    extracts each dish and uses the generate_recipe function to generate its recipe.
+    Then, it extracts the ingredients (from the "Ingredients:" line) for each dish
+    and returns a consolidated, formatted list of ingredients for all meals.
+
+    Args:
+        plan_str (str): The meal plan string (e.g., the output from get_meal_plans_for_range).
+
+    Returns:
+        str: A formatted string listing each dish with its corresponding ingredients.
+    """
+    # Split the meal plan into lines.
+    lines = plan_str.splitlines()
+    # Dictionary to hold dish names keyed by meal type (e.g., Breakfast, Lunch, Dinner, Snack)
+    dishes = {}
+    for line in lines:
+        if ":" in line:
+            label, value = line.split(":", 1)
+            label = label.strip().lower()
+            dish = value.strip()
+            # Consider common meal labels (adjust if needed)
+            if label in ["breakfast", "lunch", "dinner", "snack"]:
+                dishes[label] = dish
+
+    consolidated = {}
+    # For each dish, generate a recipe and extract ingredients.
+    for meal, dish in dishes.items():
+        print(f"Processing {meal} dish: {dish}")
+        recipe = generate_recipe(dish)
+        ingredients = None
+        # Look for a line starting with "Ingredients:" (case-insensitive)
+        for r_line in recipe.splitlines():
+            if r_line.lower().startswith("ingredients:"):
+                ing_line = r_line[len("ingredients:"):].strip()
+                # Split by commas; adjust separator if needed
+                ingredients = [item.strip() for item in ing_line.split(",") if item.strip()]
+                break
+        if ingredients:
+            consolidated[dish] = ingredients
+        else:
+            consolidated[dish] = ["No ingredients found."]
+    
+    # Format the output.
+    output_lines = []
+    for dish, ingredients in consolidated.items():
+        output_lines.append(f"{dish}: {', '.join(ingredients)}")
+    
+    return "\n".join(output_lines)
+
+
+
+def check_missing_ingredients(ingredients_str: str) -> str:
+    """
+    Given a comma-separated string of ingredients, this function checks the product_db.csv 
+    to determine which ingredients are not present in the pantry. It returns a formatted string 
+    listing all missing ingredients.
+    
+    Args:
+        ingredients_str (str): A comma-separated string of ingredients.
+        
+    Returns:
+        str: A message with the list of missing ingredients or a message indicating that all ingredients are present.
+    """
+    # Parse the input into a list of ingredients (in lowercase for comparison)
+    user_ingredients = [ing.strip().lower() for ing in ingredients_str.split(",") if ing.strip()]
+    
+    # Load existing product names from product_db.csv
+    products = []
+    try:
+        with open("product_db.csv", newline="") as csvfile:
+            reader = csv.DictReader(csvfile)
+            for row in reader:
+                product_name = row["product_name"].strip().lower()
+                products.append(product_name)
+    except FileNotFoundError:
+        return "Product database not found. Please ensure 'product_db.csv' exists in the working directory."
+    
+    # Determine missing ingredients (ingredients not found in products)
+    missing = [ing for ing in user_ingredients if ing not in products]
+    
+    if missing:
+        return "Missing ingredients: " + ", ".join(missing)
+    else:
+        return "All ingredients are present in the product database."
+
+
+
+
+
+def create_missing_ingredients_tool():
+    missing_tool = BaseTool(
+        name="missing_ingredients_tool",
+        description="Checks which ingredients from the provided list are not present in the product_db.csv.",
+        function=check_missing_ingredients,
+        parameters={
+            "ingredients_str": {
+                "type": "string",
+                "description": "A comma-separated string of ingredients to check against the pantry."
+            }
+        },
+        required=["ingredients_str"]
+    )
+    return missing_tool
+
+
+def find_cheapest_option_for_ingredient(ingredient: str) -> str:
+    """
+    Searches the grocery_db.csv for a given ingredient, returns all available options from different vendors,
+    and then determines and returns the cheapest option.
+    
+    Args:
+        ingredient (str): The name of the ingredient to search for.
+        
+    Returns:
+        str: A formatted string listing all vendor options with prices and the cheapest option.
+    """
+    matches = []
+    try:
+        with open("grocery_db.csv", newline="") as csvfile:
+            reader = csv.DictReader(csvfile)
+            for row in reader:
+                # Check if the product name contains the ingredient (case-insensitive)
+                if ingredient.lower() in row["grocery_item"].lower():
+                    try:
+                        price = float(row["price"])
+                    except ValueError:
+                        continue
+                    matches.append({
+                        "grocery_item": row["grocery_item"],
+                        "price": price,
+                        "stock": row["stock"],
+                        "vendor": row["vendor"]
+                    })
+    except FileNotFoundError:
+        return "Grocery database not found. Please ensure 'grocery_db.csv' exists in the working directory."
+    
+    if not matches:
+        return f"No options found for ingredient '{ingredient}'."
+    
+    # Sort matches by price (lowest first)
+    matches_sorted = sorted(matches, key=lambda x: x["price"])
+    cheapest = matches_sorted[0]
+    
+    # Build output string with all options
+    options_str = "\n".join(
+        f"- {item['grocery_item']} from {item['vendor']} at ${item['price']} (Stock: {item['stock']})"
+        for item in matches_sorted
+    )
+    
+    output = (
+        f"Options for '{ingredient}':\n{options_str}\n\n"
+        f"Cheapest option: {cheapest['grocery_item']} from {cheapest['vendor']} at ${cheapest['price']} (Stock: {cheapest['stock']})."
+    )
+    return output
+
+
+
+def create_cheapest_option_tool():
+    cheapest_tool = BaseTool(
+        name="cheapest_option_tool",
+        description="Finds all vendor options for a given ingredient from grocery_db.csv and returns the cheapest one.",
+        function=find_cheapest_option_for_ingredient,
+        parameters={
+            "ingredient": {
+                "type": "string",
+                "description": "The name of the ingredient to search for."
+            }
+        },
+        required=["ingredient"]
+    )
+    return cheapest_tool
+
+
+def create_grocery_management_agent(tool_registry):
+    """
+    Creates a grocery management agent that:
+      - Retrieves the meal plan for a given number of days starting from today.
+      - Extracts all ingredients from the meal plan.
+      - Checks which ingredients are missing in the pantry (product_db.csv).
+      - For each missing ingredient, finds vendor options and returns the best price.
+      - Consolidates the missing items into a shopping cart list.
+    """
+    agent_config = AzureOpenAIAgentConfig(
+        agent_name="grocery_management_agent",
+        description="An agent that manages meal planning, ingredient extraction, pantry checks, and marketplace price comparisons to create a shopping cart.",
+        model_name="gpt-4o",
+        agent_type="ChatAgent",
+        tool_registry=tool_registry,
+        system_prompt="""
+**Role and Objective:**
+You are an intelligent Grocery Management Agent designed to optimize the user's grocery planning and shopping experience. Your responsibilities include:
+1. Retrieving the meal plan for a specified number of days starting from today.
+2. Extracting and consolidating all ingredients from these meal plans.
+3. Comparing the extracted ingredients with the user's pantry (recorded in product_db.csv) to determine which ingredients are missing.
+4. For each missing ingredient, searching the marketplace (grocery_db.csv) to find all available vendor options and determining the cheapest option.
+5. Compiling and returning a comprehensive shopping cart list that details the missing items along with the best prices and vendor information.
+
+**Tools Available:**
+1. **Meal Plan Range Tool (`meal_plan_range_tool`):**
+   - Retrieves meal plans (Breakfast, Lunch, Snack, Dinner) for a given number of days starting from today.
+   - **Input:** Number of days.
+   - **Output:** A formatted string containing the meal plans for each day.
+
+2. **Ingredients for Meal Plan Tool (`ingredients_for_meal_plan_tool`):**
+   - Extracts and consolidates ingredients from a provided meal plan string.
+   - **Input:** Meal plan string (e.g., output from `meal_plan_range_tool`).
+   - **Output:** A formatted list of ingredients across all meals.
+
+3. **Missing Ingredients Tool (`missing_ingredients_tool`):**
+   - Checks which ingredients from a given list are not present in the pantry (product_db.csv).
+   - **Input:** Comma-separated list of ingredients.
+   - **Output:** A list of missing ingredients.
+
+4. **Cheapest Option Tool (`cheapest_option_tool`):**
+   - Searches the marketplace (grocery_db.csv) for a specified ingredient and returns all vendor options along with their prices, highlighting the cheapest option.
+   - **Input:** Ingredient name.
+   - **Output:** A list of vendor options with prices, with the cheapest option clearly indicated.
+
+**Guidelines:**
+- When a user requests grocery management assistance:
+  1. First, use the `meal_plan_range_tool` to retrieve the meal plans for the requested number of days, starting from today.
+  2. Next, use the `ingredients_for_meal_plan_tool` to extract and consolidate the ingredients from the meal plans.
+  3. Then, compare these ingredients with the items in the pantry using the `missing_ingredients_tool` to determine which ingredients are missing.
+  4. For each missing ingredient, utilize the `cheapest_option_tool` to find vendor options and identify the cheapest available option.
+  5. Finally, compile a shopping cart list that includes all missing ingredients with the best pricing and vendor information.
+- Always begin by storing the user's message and retrieving the conversation context before generating your final response.
+- Provide clear, actionable, and concise output to guide the user in their grocery purchasing decisions.
+
+Your ultimate goal is to help the user minimize food waste and save money by ensuring they purchase only the items they are missing at the best available prices.
+        """,
+        api_key=os.getenv("OPENAI_API_KEY"),
+        api_base="https://aoi-iiit-hack-2.openai.azure.com/",
+        api_version=os.getenv("AZURE_OPENAI_API_VERSION") or "2024-12-01-preview",
+        organization=None
+    )
+    agent = AzureOpenAIAgent(config=agent_config)
+    return agent
 
 
 
@@ -808,6 +1130,10 @@ def setup_agent():
     tool_registry.register_tool(import_to_csv_tool())
     tool_registry.register_tool(create_generate_recipe_tool())
     tool_registry.register_tool(create_meal_plan_tool())
+    tool_registry.register_tool(create_meal_plan_range_tool()) 
+    tool_registry.register_tool(create_ingredients_for_meal_plan_tool())
+    tool_registry.register_tool(create_missing_ingredients_tool())
+    tool_registry.register_tool(create_cheapest_option_tool())
 
 
     # Set up registry and orchestrator
@@ -815,10 +1141,12 @@ def setup_agent():
     inventory_agent = create_inventory_agent(tool_registry)
     onboarding_agent = create_onboarding_agent(tool_registry)
     meal_recipe_agent = create_meal_recipe_agent(tool_registry)
+    grocery_management_agent = create_grocery_management_agent(tool_registry)
     agent_registry.register_agent(inventory_agent)
     agent_registry.register_agent(onboarding_agent)
     agent_registry.register_agent(meal_recipe_agent)
     agent_registry.register_agent(create_alternate_meal_agent(tool_registry))
+    agent_registry.register_agent(grocery_management_agent)
 
 
     orchestrator = SimpleOrchestrator(
