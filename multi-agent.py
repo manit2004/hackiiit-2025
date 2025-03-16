@@ -7,8 +7,10 @@ import re
 import csv
 from datetime import datetime, timedelta
 import random
+import openai
 import pandas as pd
 from io import StringIO
+from moya.classifiers.llm_classifier import LLMClassifier
 from moya.conversation.thread import Thread
 from moya.tools.base_tool import BaseTool
 from moya.tools.ephemeral_memory import EphemeralMemory
@@ -147,6 +149,7 @@ def product_inventory_query(query: str) -> str:
     else:
         return "Query not recognized. Please ask about product expiry or freshness."
 
+
 def create_product_inventory_query_tool():
     product_inventory_query_tool = BaseTool(
     name="product_inventory_query_tool",
@@ -195,6 +198,7 @@ def list_all_products_with_expiry() -> str:
 
     return "Product List with Expiry Dates:\n" + "\n".join(lines)
 
+
 def create_list_all_products_with_expiry_tool():
     list_products_tool = BaseTool(
     name="list_products_with_expiry_tool",
@@ -206,6 +210,9 @@ def create_list_all_products_with_expiry_tool():
 
 # Then register this tool with your tool registry:
     return list_products_tool
+
+
+
 
 def get_product_details(product_query: str) -> str:
     """
@@ -243,6 +250,7 @@ def get_product_details(product_query: str) -> str:
                 f"Quantity: {product['quantity']}"
             )
         return "\n".join(details_lines)
+
 
 def create_get_product_details_tool():
     get_product_details_tool = BaseTool(
@@ -348,7 +356,7 @@ def create_onboarding_agent(tool_registry):
             Your ultimate goal is to make the user's grocery management experience seamless, efficient, and personalized.
         """,
         api_key=os.getenv("OPENAI_API_KEY"),
-        api_base=os.getenv("API_ENDPOINT") ,  # Use default OpenAI API base
+        api_base="https://aoi-iiit-hack-2.openai.azure.com/" ,  # Use default OpenAI API base
         api_version=os.getenv("AZURE_OPENAI_API_VERSION") or "2024-12-01-preview",
         organization=None  # Use default organization
     )
@@ -359,6 +367,120 @@ def create_onboarding_agent(tool_registry):
     )
 
     return onboarding_agent
+
+
+
+def generate_recipe(food_item: str) -> str:
+    """
+    Uses the OpenAI API to generate a recipe for the given food item.
+    
+    Args:
+        food_item (str): The name of the food item.
+        
+    Returns:
+        str: A detailed recipe including ingredients and steps.
+    """
+    prompt = (
+        f"Provide a detailed recipe for {food_item}. "
+        "Include a list of ingredients with quantities and step-by-step instructions for preparation."
+    )
+    
+    # Make a call to the OpenAI API to generate the recipe
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-4",
+            messages=[
+                {"role": "system", "content": "You are a knowledgeable culinary assistant."},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.7,
+        )
+        recipe = response['choices'][0]['message']['content'].strip()
+        return recipe
+    except Exception as e:
+        return f"An error occurred while generating the recipe: {e}"
+    
+
+
+# def generate_daily_recipe_inventory(day: str) -> None:
+#     """
+#     For a given day (e.g., "Day 1"), this function reads the meal plan from 'meal_plan.csv',
+#     generates recipes for each meal (Breakfast, Lunch, Snack, Dinner) using the generate_recipe function,
+#     and then prompts the user to enter the inventory amount for the groceries/items required.
+
+#     Args:
+#         day (str): The day for which to generate recipes (e.g., "Day 1").
+#     """
+#     # Read meal plan from CSV
+#     meal_plan = None
+#     try:
+#         with open("meal_plan.csv", newline="") as csvfile:
+#             reader = csv.DictReader(csvfile)
+#             for row in reader:
+#                 # Compare case-insensitively and strip any whitespace
+#                 if row["Day"].strip().lower() == day.strip().lower():
+#                     meal_plan = row
+#                     break
+#         if not meal_plan:
+#             print(f"Meal plan for {day} not found.")
+#             return
+#     except FileNotFoundError:
+#         print("Meal plan CSV file not found. Please ensure 'meal_plan.csv' exists in the working directory.")
+#         return
+
+#     # List of meal columns to process
+#     meal_columns = ["Breakfast", "Lunch", "Snack", "Dinner"]
+#     daily_inventory = {}
+
+#     for meal in meal_columns:
+#         dish = meal_plan.get(meal, "").strip()
+#         if not dish:
+#             continue
+
+#         print(f"\n--- {meal}: {dish} ---")
+#         # Generate recipe using the generate_recipe function
+#         recipe = generate_recipe(dish)
+#         print("Generated Recipe:")
+#         print(recipe)
+#         # Ask user for inventory information related to this meal's ingredients
+#         inventory_input = input(f"\nEnter the quantities you already have for the ingredients of '{dish}' (comma separated, or leave blank if none): ")
+#         daily_inventory[meal] = inventory_input
+
+#     print("\nCollected Inventory Data for", day)
+#     for meal, inventory in daily_inventory.items():
+#         print(f"{meal}: {inventory if inventory else 'No data provided'}")
+
+
+
+def create_generate_recipe_tool():
+    recipe_tool = BaseTool(
+        name="generate_recipe_tool",
+        description="Generates a detailed recipe for a given food item using AI.",
+        function=generate_recipe,
+        parameters={
+            "food_item": {
+                "type": "string",
+                "description": "The name of the food item to generate a recipe for."
+            }
+        },
+        required=["food_item"]
+    )
+    return recipe_tool
+
+def create_daily_recipe_inventory_tool():
+    daily_recipe_inventory_tool = BaseTool(
+        name="daily_recipe_inventory_tool",
+        description="Generates daily recipes and prompts the user to enter inventory amounts for the ingredients.",
+        function=generate_daily_recipe_inventory,
+        parameters={
+            "day": {
+                "type": "string",
+                "description": "The day for which to generate recipes (e.g., 'Day 1')."
+            }
+        },
+        required=["day"]
+    )
+    return daily_recipe_inventory_tool
 
 
 def create_classifier_agent(tool_registry):
@@ -380,6 +502,167 @@ def create_classifier_agent(tool_registry):
     agent = AzureOpenAIAgent(config)
     return agent
 
+
+
+def generate_daily_recipe_inventory(day: str) -> None:
+    """
+    For a given day (e.g., "Monday"), this function reads the meal plan from 'meal_plan.csv',
+    generates recipes for each meal (Breakfast, Lunch, Dinner) using the generate_recipe function,
+    and then prompts the user to enter the inventory amounts for the ingredients.
+    It then updates a shopping list for missing ingredients.
+
+    Args:
+        day (str): The day for which to generate recipes (e.g., "Monday").
+    """
+    # Read meal plan from CSV
+    meal_plan = None
+    try:
+        with open("meal_plan.csv", newline="") as csvfile:
+            reader = csv.DictReader(csvfile)
+            for row in reader:
+                if row["Day"].strip().lower() == day.strip().lower():
+                    meal_plan = row
+                    break
+        if not meal_plan:
+            print(f"Meal plan for {day} not found.")
+            return
+    except FileNotFoundError:
+        print("Meal plan CSV file not found. Please ensure 'meal_plan.csv' exists in the working directory.")
+        return
+
+    # Use only available meal columns (e.g., Breakfast, Lunch, Dinner)
+    meal_columns = ["Breakfast", "Lunch", "Dinner"]
+    daily_inventory = {}
+
+    for meal in meal_columns:
+        dish = meal_plan.get(meal, "").strip()
+        if not dish:
+            continue
+
+        print(f"\n--- {meal}: {dish} ---")
+        # Generate recipe using the generate_recipe function
+        recipe = generate_recipe(dish)
+        print("Generated Recipe:")
+        print(recipe)
+        # Ask user for inventory information related to this dish's ingredients
+        inventory_input = input(f"\nEnter the ingredients you already have for '{dish}' (comma separated, or leave blank if none): ")
+        daily_inventory[meal] = inventory_input
+        # Update shopping list for this dish based on missing ingredients
+        update_pantry_and_shopping_list(dish, recipe, inventory_input)
+
+
+    print("\nCollected Inventory Data for", day)
+    for meal, inventory in daily_inventory.items():
+        print(f"{meal}: {inventory if inventory else 'No data provided'}")
+
+
+
+def update_pantry_and_shopping_list(dish: str, recipe: str, user_inventory_input: str) -> None:
+    """
+    Extracts ingredients from the recipe, compares them with the user's input,
+    updates the pantry (product_db.csv) with items the user already has, and updates the shopping list (shopping_list.csv)
+    with missing ingredients.
+    
+    For new pantry items, generates a random expiry date (between 5 and 15 days from today) and uses today as the buying date.
+    
+    Args:
+        dish (str): The name of the dish.
+        recipe (str): The generated recipe text (expected to include an "Ingredients:" section).
+        user_inventory_input (str): Comma-separated list of ingredients the user already has.
+    """
+    # Extract ingredients from the recipe.
+    ingredients = []
+    for line in recipe.splitlines():
+        if line.lower().startswith("ingredients:"):
+            ing_line = line[len("ingredients:"):].strip()
+            ingredients = [item.strip().lower() for item in ing_line.split(",") if item.strip()]
+            break
+
+    if not ingredients:
+        print(f"Could not extract ingredients for '{dish}'.")
+        return
+
+    # Parse the user's pantry input.
+    user_inventory = [item.strip().lower() for item in user_inventory_input.split(",") if item.strip()]
+
+    # Load existing pantry from product_db.csv.
+    pantry = []
+    try:
+        with open("product_db.csv", newline="") as csvfile:
+            reader = csv.DictReader(csvfile)
+            for row in reader:
+                row["quantity"] = int(row["quantity"])
+                pantry.append(row)
+    except FileNotFoundError:
+        pantry = []
+
+    # Helper to check if an ingredient exists in the pantry.
+    def in_pantry(ingredient):
+        for item in pantry:
+            if item["product_name"].lower() == ingredient:
+                return True
+        return False
+
+    # Update pantry: add any ingredients from user's input that are not already in the pantry.
+    current_date = datetime.today()
+    for ing in user_inventory:
+        if not in_pantry(ing):
+            new_item = {
+                "product_id": str(len(pantry) + 1),  # Simple ID generation.
+                "product_name": ing,
+                "buying_date": current_date.strftime("%Y-%m-%d"),
+                "expiry_date": (current_date + timedelta(days=random.randint(5,15))).strftime("%Y-%m-%d"),
+                "quantity": "1"
+            }
+            pantry.append(new_item)
+            print(f"Added '{ing}' to pantry (product_db.csv).")
+
+    # Write the updated pantry back to product_db.csv.
+    with open("product_db.csv", "w", newline="") as csvfile:
+        fieldnames = ["product_id", "product_name", "buying_date", "expiry_date", "quantity"]
+        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+        writer.writeheader()
+        for row in pantry:
+            writer.writerow(row)
+
+    # Identify missing ingredients: those in the recipe but not in the user's input.
+    missing = [ing for ing in ingredients if ing not in user_inventory]
+
+    # Update shopping list (shopping_list.csv) with missing items.
+    if missing:
+        print(f"Missing ingredients for '{dish}': {', '.join(missing)}")
+        shopping_list = []
+        try:
+            with open("shopping_list.csv", newline="") as csvfile:
+                reader = csv.DictReader(csvfile)
+                for row in reader:
+                    shopping_list.append(row)
+        except FileNotFoundError:
+            shopping_list = []
+
+        for item in missing:
+            if not any(row["ingredient"].lower() == item for row in shopping_list):
+                shopping_list.append({"ingredient": item, "dish": dish})
+
+        with open("shopping_list.csv", "w", newline="") as csvfile:
+            fieldnames = ["ingredient", "dish"]
+            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+            writer.writeheader()
+            for row in shopping_list:
+                writer.writerow(row)
+    else:
+        print(f"All ingredients for '{dish}' are present in your pantry.")
+
+    # Finally, print the missing ingredients that need to be bought.
+    if missing:
+        print(f"\nFor '{dish}', you need to buy: {', '.join(missing)}")
+    else:
+        print(f"Your pantry has all the ingredients for '{dish}'.")
+
+
+
+
+
 def setup_agent():
     """
     Set up the AzureOpenAI agent with memory capabilities and return the orchestrator and agent.
@@ -393,6 +676,9 @@ def setup_agent():
     tool_registry.register_tool(create_list_all_products_with_expiry_tool())
     tool_registry.register_tool(create_get_product_details_tool())
     tool_registry.register_tool(import_to_csv_tool())
+    tool_registry.register_tool(create_generate_recipe_tool())
+    tool_registry.register_tool(create_daily_recipe_inventory_tool())
+
 
 
     # Set up registry and orchestrator
@@ -408,6 +694,7 @@ def setup_agent():
     )
 
     return orchestrator
+
 
 
 def format_conversation_context(messages):
@@ -426,6 +713,7 @@ def format_conversation_context(messages):
         sender = "User" if msg.sender == "user" else "Assistant"
         context += f"{sender}: {msg.content}\n"
     return context
+
 
 
 def main():
@@ -476,4 +764,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
