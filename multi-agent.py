@@ -369,6 +369,75 @@ def create_onboarding_agent(tool_registry):
     return onboarding_agent
 
 
+def create_classifier_agent(tool_registry):
+    """Create a classifier agent for language and task detection."""
+    config = AzureOpenAIAgentConfig(
+        agent_name="chat_agent",
+        description="Language and task classifier for routing messages",
+        api_key=os.getenv("OPENAI_API_KEY"),
+        model_name="gpt-4o",
+        agent_type="ChatAgent",
+        tool_registry=tool_registry,
+        is_streaming=True,
+        system_prompt=""""You are a classifier. Your job is to determine the best agent based on the user's message:
+        1. If the message requests or implies a need for a meal plan or if the user appears to be a new user, return 'onboarding_agent'
+        2. If the message requests information about inventory like what products are expiring or how many products are fresh or any product details, return 'inventory_agent'
+        """,
+    )
+
+    agent = AzureOpenAIAgent(config)
+    return agent
+
+
+
+def create_meal_plan_tool():
+    meal_plan_tool = BaseTool(
+        name="meal_plan_tool",
+        description="Returns the meal plan (Breakfast, Lunch, Dinner) for a given day from meal_plan.csv.",
+        function=get_meal_plan_for_day,
+        parameters={
+            "day": {
+                "type": "string",
+                "description": "The day for which to retrieve the meal plan (e.g., 'Monday')."
+            }
+        },
+        required=["day"]
+    )
+    return meal_plan_tool
+
+
+
+
+def get_meal_plan_for_day(day: str) -> str:
+    """
+    Reads the meal_plan.csv file and returns the meal plan for the given day.
+    
+    The CSV is expected to have the following columns:
+    Day, Breakfast, Lunch, Dinner
+    
+    Args:
+        day (str): The day for which to retrieve the meal plan (e.g., "Monday").
+        
+    Returns:
+        str: A formatted string with the meal plan details or an error message if not found.
+    """
+    try:
+        with open("meal_plan.csv", newline="") as csvfile:
+            reader = csv.DictReader(csvfile)
+            for row in reader:
+                if row["Day"].strip().lower() == day.strip().lower():
+                    breakfast = row.get("Breakfast", "N/A")
+                    lunch = row.get("Lunch", "N/A")
+                    dinner = row.get("Dinner", "N/A")
+                    return (f"Meal Plan for {day}:\n"
+                            f"Breakfast: {breakfast}\n"
+                            f"Lunch: {lunch}\n"
+                            f"Dinner: {dinner}")
+        return f"No meal plan found for {day}."
+    except FileNotFoundError:
+        return "Meal plan CSV file not found. Please ensure 'meal_plan.csv' exists in the working directory."
+
+
 
 def generate_recipe(food_item: str) -> str:
     """
@@ -402,55 +471,6 @@ def generate_recipe(food_item: str) -> str:
     
 
 
-# def generate_daily_recipe_inventory(day: str) -> None:
-#     """
-#     For a given day (e.g., "Day 1"), this function reads the meal plan from 'meal_plan.csv',
-#     generates recipes for each meal (Breakfast, Lunch, Snack, Dinner) using the generate_recipe function,
-#     and then prompts the user to enter the inventory amount for the groceries/items required.
-
-#     Args:
-#         day (str): The day for which to generate recipes (e.g., "Day 1").
-#     """
-#     # Read meal plan from CSV
-#     meal_plan = None
-#     try:
-#         with open("meal_plan.csv", newline="") as csvfile:
-#             reader = csv.DictReader(csvfile)
-#             for row in reader:
-#                 # Compare case-insensitively and strip any whitespace
-#                 if row["Day"].strip().lower() == day.strip().lower():
-#                     meal_plan = row
-#                     break
-#         if not meal_plan:
-#             print(f"Meal plan for {day} not found.")
-#             return
-#     except FileNotFoundError:
-#         print("Meal plan CSV file not found. Please ensure 'meal_plan.csv' exists in the working directory.")
-#         return
-
-#     # List of meal columns to process
-#     meal_columns = ["Breakfast", "Lunch", "Snack", "Dinner"]
-#     daily_inventory = {}
-
-#     for meal in meal_columns:
-#         dish = meal_plan.get(meal, "").strip()
-#         if not dish:
-#             continue
-
-#         print(f"\n--- {meal}: {dish} ---")
-#         # Generate recipe using the generate_recipe function
-#         recipe = generate_recipe(dish)
-#         print("Generated Recipe:")
-#         print(recipe)
-#         # Ask user for inventory information related to this meal's ingredients
-#         inventory_input = input(f"\nEnter the quantities you already have for the ingredients of '{dish}' (comma separated, or leave blank if none): ")
-#         daily_inventory[meal] = inventory_input
-
-#     print("\nCollected Inventory Data for", day)
-#     for meal, inventory in daily_inventory.items():
-#         print(f"{meal}: {inventory if inventory else 'No data provided'}")
-
-
 
 def create_generate_recipe_tool():
     recipe_tool = BaseTool(
@@ -467,93 +487,32 @@ def create_generate_recipe_tool():
     )
     return recipe_tool
 
-def create_daily_recipe_inventory_tool():
-    daily_recipe_inventory_tool = BaseTool(
-        name="daily_recipe_inventory_tool",
-        description="Generates daily recipes and prompts the user to enter inventory amounts for the ingredients.",
-        function=generate_daily_recipe_inventory,
-        parameters={
-            "day": {
-                "type": "string",
-                "description": "The day for which to generate recipes (e.g., 'Day 1')."
-            }
-        },
-        required=["day"]
-    )
-    return daily_recipe_inventory_tool
 
-
-def create_classifier_agent(tool_registry):
-    """Create a classifier agent for language and task detection."""
-    config = AzureOpenAIAgentConfig(
-        agent_name="chat_agent",
-        description="Language and task classifier for routing messages",
-        api_key=os.getenv("OPENAI_API_KEY"),
+def create_meal_recipe_agent(tool_registry):
+    """
+    Creates an agent that, given a day and a meal type (e.g., Breakfast),
+    retrieves the corresponding dish from the meal plan and returns a generated recipe.
+    """
+    agent_config = AzureOpenAIAgentConfig(
+        agent_name="meal_recipe_agent",
+        description="An agent that returns a dish for a given day and meal type (Breakfast, Lunch, Dinner). and also the recipe of it upon asking",
         model_name="gpt-4o",
         agent_type="ChatAgent",
         tool_registry=tool_registry,
-        is_streaming=True,
-        system_prompt=""""You are a classifier. Your job is to determine the best agent based on the user's message:
-        1. If the message requests or implies a need for a meal plan or if the user appears to be a new user, return 'onboarding_agent'
-        2. If the message requests information about inventory like what products are expiring or how many products are fresh or any product details, return 'inventory_agent'
-        """,
+        system_prompt="""
+You are a meal recipe agent. When a user provides a day and a meal type (Breakfast, Lunch, Dinner), do the following:
+1. Use the 'meal_plan_tool' to retrieve the meal plan for the specified day.
+2. Extract the dish corresponding to the given meal type.
+3. Use the 'generate_recipe_tool' to generate a detailed recipe for that dish upon asking.
+Return the generated recipe to the user.
+""",
+        api_key=os.getenv("OPENAI_API_KEY"),
+        api_base="https://aoi-iiit-hack-2.openai.azure.com/",
+        api_version=os.getenv("AZURE_OPENAI_API_VERSION") or "2024-12-01-preview",
+        organization=None
     )
-
-    agent = AzureOpenAIAgent(config)
+    agent = AzureOpenAIAgent(config=agent_config)
     return agent
-
-
-
-def generate_daily_recipe_inventory(day: str) -> None:
-    """
-    For a given day (e.g., "Monday"), this function reads the meal plan from 'meal_plan.csv',
-    generates recipes for each meal (Breakfast, Lunch, Dinner) using the generate_recipe function,
-    and then prompts the user to enter the inventory amounts for the ingredients.
-    It then updates a shopping list for missing ingredients.
-
-    Args:
-        day (str): The day for which to generate recipes (e.g., "Monday").
-    """
-    # Read meal plan from CSV
-    meal_plan = None
-    try:
-        with open("meal_plan.csv", newline="") as csvfile:
-            reader = csv.DictReader(csvfile)
-            for row in reader:
-                if row["Day"].strip().lower() == day.strip().lower():
-                    meal_plan = row
-                    break
-        if not meal_plan:
-            print(f"Meal plan for {day} not found.")
-            return
-    except FileNotFoundError:
-        print("Meal plan CSV file not found. Please ensure 'meal_plan.csv' exists in the working directory.")
-        return
-
-    # Use only available meal columns (e.g., Breakfast, Lunch, Dinner)
-    meal_columns = ["Breakfast", "Lunch", "Dinner"]
-    daily_inventory = {}
-
-    for meal in meal_columns:
-        dish = meal_plan.get(meal, "").strip()
-        if not dish:
-            continue
-
-        print(f"\n--- {meal}: {dish} ---")
-        # Generate recipe using the generate_recipe function
-        recipe = generate_recipe(dish)
-        print("Generated Recipe:")
-        print(recipe)
-        # Ask user for inventory information related to this dish's ingredients
-        inventory_input = input(f"\nEnter the ingredients you already have for '{dish}' (comma separated, or leave blank if none): ")
-        daily_inventory[meal] = inventory_input
-        # Update shopping list for this dish based on missing ingredients
-        update_pantry_and_shopping_list(dish, recipe, inventory_input)
-
-
-    print("\nCollected Inventory Data for", day)
-    for meal, inventory in daily_inventory.items():
-        print(f"{meal}: {inventory if inventory else 'No data provided'}")
 
 
 
@@ -677,7 +636,7 @@ def setup_agent():
     tool_registry.register_tool(create_get_product_details_tool())
     tool_registry.register_tool(import_to_csv_tool())
     tool_registry.register_tool(create_generate_recipe_tool())
-    tool_registry.register_tool(create_daily_recipe_inventory_tool())
+    tool_registry.register_tool(create_meal_plan_tool()) 
 
 
 
@@ -685,8 +644,11 @@ def setup_agent():
     agent_registry = AgentRegistry()
     inventory_agent = create_inventory_agent(tool_registry)
     onboarding_agent = create_onboarding_agent(tool_registry)
+    meal_recipe_agent = create_meal_recipe_agent(tool_registry)
     agent_registry.register_agent(inventory_agent)
     agent_registry.register_agent(onboarding_agent)
+    agent_registry.register_agent(meal_recipe_agent)
+    
     
     orchestrator = SimpleOrchestrator(
         agent_registry=agent_registry,
