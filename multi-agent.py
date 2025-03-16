@@ -363,60 +363,101 @@ def create_fresh_products_tool():
         required=["query"]
     )
 
+def get_low_stock_products(threshold=5, filename="product_db.csv"):
+    """
+    Identifies products that are running low in stock.
+
+    Args:
+        threshold (int): The quantity threshold below which products are considered low stock.
+        filename (str): The CSV file containing product data.
+
+    Returns:
+        str: A formatted string listing products with quantities below the threshold.
+    """
+    try:
+        with open(filename, newline="") as csvfile:
+            reader = csv.DictReader(csvfile)
+            low_stock = [
+                f"{row['product_name']} (Quantity: {row['quantity']})"
+                for row in reader if int(row['quantity']) < threshold
+            ]
+    except FileNotFoundError:
+        return "Product database not found. Please ensure 'product_db.csv' exists."
+
+    return "\n".join(low_stock) or "No products are running low."
+
+
+def create_low_stock_products_tool():
+    return BaseTool(
+        name="low_stock_products_tool",
+        description="Identifies products that are running low in stock.",
+        function=get_low_stock_products,
+        parameters={"threshold": {"type": "integer", "description": "Quantity threshold for low stock."}},
+        required=["threshold"]
+    )
 
 def create_inventory_agent(tool_registry):
+    """
+    Creates an inventory management agent that:
+      - Tracks product expiration and freshness.
+      - Provides product details.
+      - Identifies products that are running low in stock.
+    """
     agent_config = AzureOpenAIAgentConfig(
-        agent_name="chat_agent",
-        description="An interactive chat agent",
+        agent_name="inventory_agent",
+        description="An interactive inventory management agent for tracking product status and freshness.",
         model_name="gpt-4o",
         agent_type="ChatAgent",
         tool_registry=tool_registry,
         system_prompt="""
-            ### System Prompt for Inventory Agent
-                **Role and Objective:**
-                You are an intelligent Inventory Management Agent specializing in managing and tracking grocery products within a home. Your goal is to provide accurate information on product expiration, freshness, and availability.
+### System Prompt for Inventory Agent
 
-                ### Tools Available:
-                1. **Expired Products Tool (`expired_products_tool`):**
-                - Identifies products that have already expired.
-                - Input: User's query.
-                - Output: List of expired products with quantity and expiration date.
+**Role and Objective:**
+You are an intelligent Inventory Management Agent specializing in managing and tracking grocery products within a home. Your goal is to provide accurate information on product expiration, freshness, availability, and low-stock alerts.
 
-                2. **Products Expiring Within Tool (`products_expiring_within_tool`):**
-                - Returns products that will expire within a specified number of days.
-                - Input: User's query and threshold in days.
-                - Output: List of products expiring within the threshold.
+**Tools Available:**
+1. **Expired Products Tool (`expired_products_tool`):**
+   - Identifies products that have already expired.
+   - **Input:** User's query.
+   - **Output:** List of expired products with quantity and expiration date.
 
-                3. **Product Details Tool (`product_details_tool`):**
-                - Retrieves detailed information about a specific product by name.
-                - Input: User's query and product name.
-                - Output: Product ID, name, quantity, buying date, and expiration date.
+2. **Products Expiring Within Tool (`products_expiring_within_tool`):**
+   - Returns products that will expire within a specified number of days.
+   - **Input:** User's query and threshold in days.
+   - **Output:** List of products expiring within the threshold.
 
-                4. **Fresh Products Tool (`fresh_products_tool`):**
-                - Lists products with sufficient freshness based on a threshold in days.
-                - Input: User's query and freshness threshold.
-                - Output: List of fresh products with quantity and expiration date.
+3. **Product Details Tool (`product_details_tool`):**
+   - Retrieves detailed information about a specific product by name.
+   - **Input:** User's query and product name.
+   - **Output:** Product ID, name, quantity, buying date, and expiration date.
 
-                ### Guidelines:
-                - Always store the user's message and retrieve conversation context before generating responses.
-                - Use the appropriate tool based on the user's query.
-                - If the user asks about expired products, call the `expired_products_tool`.
-                - For upcoming expiration inquiries, use `products_expiring_within_tool`.
-                - To provide product-specific details, use the `product_details_tool`.
-                - To show fresh products, utilize `fresh_products_tool`.
+4. **Fresh Products Tool (`fresh_products_tool`):**
+   - Lists products with sufficient freshness based on a threshold in days.
+   - **Input:** User's query and freshness threshold.
+   - **Output:** List of fresh products with quantity and expiration date.
 
-                Your goal is to assist users in efficiently managing their grocery inventory while minimizing waste and optimizing usage.
+5. **Low Stock Products Tool (`low_stock_products_tool`):**
+   - Identifies products that are running low in stock.
+   - **Input:** Quantity threshold for low stock.
+   - **Output:** A list of products with quantities below the threshold.
+
+**Guidelines:**
+- Store the user's message and retrieve the conversation context before generating responses.
+- Use the appropriate tool based on the user's query.
+- For expired products, use `expired_products_tool`.
+- For upcoming expiration inquiries, use `products_expiring_within_tool`.
+- For product-specific details, use `product_details_tool`.
+- To show fresh products, use `fresh_products_tool`.
+- For low stock alerts, use `low_stock_products_tool`.
+
+Your goal is to assist users in efficiently managing their grocery inventory while minimizing waste and optimizing usage.
         """,
         api_key=os.getenv("OPENAI_API_KEY"),
-        api_base="https://aoi-iiit-hack-2.openai.azure.com/",  # Use default OpenAI API base
+        api_base="https://aoi-iiit-hack-2.openai.azure.com/",
         api_version=os.getenv("AZURE_OPENAI_API_VERSION") or "2024-12-01-preview",
-        organization=None  # Use default organization
+        organization=None
     )
-
-    # Create Azure OpenAI agent with memory capabilities
-    agent = AzureOpenAIAgent(
-        config=agent_config
-    )
+    agent = AzureOpenAIAgent(config=agent_config)
     return agent
 
 def create_onboarding_agent(tool_registry):
@@ -1133,6 +1174,7 @@ def setup_agent():
     tool_registry.register_tool(create_ingredients_for_meal_plan_tool())
     tool_registry.register_tool(create_missing_ingredients_tool())
     tool_registry.register_tool(create_cheapest_option_tool())
+    tool_registry.register_tool(create_low_stock_products_tool())
 
 
     # Set up registry and orchestrator
