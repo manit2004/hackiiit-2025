@@ -1,0 +1,153 @@
+grocery_item,price,stock,vendor
+Cheese,7.87,93,Grofers
+Cereal,10.88,80,Amazon Fresh
+Grapes,10.66,80,BigBasket
+Ham,1.98,11,Grofers
+Potato,1.33,30,BigBasket
+Apple,3.37,173,BigBasket
+Orange,3.23,86,Amazon Fresh
+Grapes,2.1,69,Instamart
+Chicken,7.83,49,Grofers
+Pasta,11.15,32,BigBasket
+Pork,17.65,36,Amazon Fresh
+Lentils,13.21,86,BigBasket
+Rice,14.66,114,Zepto
+Orange,12.37,111,Grofers
+Tomato,1.01,154,Instamart
+Chicken,19.07,54,BigBasket
+Lettuce,18.08,193,Instamart
+Spinach,8.98,102,Zepto
+Cabbage,13.97,176,BigBasket
+Butter,12.39,196,Grofers
+Spinach,4.31,57,Grofers
+Carrot,8.88,163,BigBasket
+Apple,5.96,86,Amazon Fresh
+Blueberry,14.12,76,Amazon Fresh
+Water,13.68,40,BigBasket
+Coffee,6.24,119,Grofers
+Ham,2.48,10,Instamart
+Ham,17.42,47,Amazon Fresh
+Bacon,3.43,108,Instamart
+Coffee,14.44,22,Instamart
+Ham,6.0,148,BigBasket
+Broccoli,3.61,31,Grofers
+Butter,4.93,170,Grofers
+Tofu,19.37,35,Amazon Fresh
+Blueberry,16.0,29,Zepto
+Pasta,7.96,193,Instamart
+Beef,11.81,109,Zepto
+Cheese,12.98,41,Zepto
+Tomato,17.97,64,Instamart
+Milk,15.57,37,Zepto
+Oats,12.48,136,Instamart
+Fish,13.53,95,Grofers
+Bacon,7.4,12,Zepto
+Chicken,14.73,88,Grofers
+Banana,6.21,161,Zepto
+Tea,18.11,113,Grofers
+Cucumber,3.46,32,BigBasket
+Butter,19.81,183,Zepto
+Tomato,0.67,35,Amazon Fresh
+Beef,14.98,88,Amazon Fresh
+Oats,9.97,123,Zepto
+Spinach,19.03,161,BigBasket
+Pork,0.9,82,BigBasket
+Soda,3.26,26,Grofers
+Turkey,3.77,17,Amazon Fresh
+Bread,5.92,127,Grofers
+Chicken,13.71,11,Amazon Fresh
+Orange,10.78,142,Amazon Fresh
+Beef,6.34,92,Zepto
+Potato,11.3,88,Zepto
+Cheese,14.66,110,Zepto
+Eggs,13.85,167,Amazon Fresh
+Beans,8.0,90,Zepto
+Apple,14.23,118,BigBasket
+Strawberry,10.64,49,Instamart
+Water,17.91,59,Instamart
+Oats,3.59,184,Zepto
+Broccoli,4.08,184,Amazon Fresh
+Pork,11.25,111,BigBasket
+Cheese,7.09,116,Grofers
+Cucumber,13.02,27,BigBasket
+Cucumber,1.99,107,Amazon Fresh
+Fish,16.06,86,BigBasket
+Apple,6.28,13,Zepto
+Juice,4.99,184,Instamart
+Beef,0.74,17,Instamart
+Fish,5.63,75,Grofers
+Tea,9.32,35,Grofers
+Lentils,4.1,57,Instamart
+Coffee,12.87,143,Instamart
+Cereal,0.94,57,BigBasket
+Turkey,5.85,111,Zepto
+Water,10.64,34,Amazon Fresh
+Banana,7.75,144,Zepto
+Tofu,13.31,18,Zepto
+Tomato,16.72,24,Grofers
+Tofu,16.69,171,BigBasket
+Tea,19.81,168,Zepto
+Fish,9.67,112,Amazon Fresh
+Potato,12.45,177,BigBasket
+Carrot,1.69,110,Grofers
+Water,2.25,78,Grofers
+Cereal,12.11,46,Instamart
+Apple,4.57,77,Instamart
+Sausage,9.42,42,BigBasket
+Lettuce,19.9,22,Grofers
+Milk,6.62,159,Instamart
+Potato,10.46,20,Instamart
+Bacon,17.97,128,Instamart
+Milk,1.47,17,Grofers
+English muffins,3.5,50,Grofers
+Canadian bacon,5.0,30,BigBasket
+Hollandaise sauce,4.75,20,BigBasket
+Chicken breast,8.99,40,Grofers
+Curry powder,2.99,100,Amazon Fresh
+Coconut milk,3.25,60,Grofers
+Onion,1.5,120,BigBasket
+Garlic,0.75,200,Instamart
+Ginger,2.5,80,Amazon Fresh
+Tomato paste,1.99,90,Grofers
+Granola,4.5,70,BigBasket
+Steak,15.0,25,Zepto
+Salt,0.99,300,Amazon Fresh
+Pepper,1.5,250,Amazon Fresh
+Oats,4.0,150,Grofers
+Honey,5.99,40,Instamart
+Fruits,3.0,200,BigBasket
+Nuts,7.0,90,Amazon Fresh
+Mixed greens,3.5,100,BigBasket
+Cherry tomatoes,4.25,85,BigBasket
+Cucumber,1.75,150,Grofers
+Dressing,2.99,80,Amazon Fresh
+Apples,3.5,180,BigBasket
+Peanut butter,2.5,110,Zepto
+Pasta,6.75,130,BigBasket
+Tomato sauce,2.25,140,BigBasket
+Parmesan cheese,4.99,75,Amazon Fresh
+Bananas,1.5,210,Instamart
+Berries,5.99,60,BigBasket
+Quinoa,7.25,55,BigBasket
+Vegetables,4.5,120,Amazon Fresh
+Avocado,2.99,90,Instamart
+Hummus,3.75,80,Instamart
+Veggie sticks,2.5,100,Grofers
+Chicken,9.5,70,Instamart
+Tofu,4.5,85,Amazon Fresh
+Mixed vegetables,5.25,95,Instamart
+Soy sauce,2.0,150,Zepto
+Flour,1.99,200,BigBasket
+Maple syrup,6.5,45,Zepto
+Rice,8.75,160,Amazon Fresh
+Black beans,3.5,140,Grofers
+Corn,2.5,130,Instamart
+Salmon fillets,12.99,50,Zepto
+Olive oil,7.99,80,BigBasket
+Lemon,0.99,210,BigBasket
+Herbs,2.5,100,Instamart
+Tomato,0.64,35,Zepto
+Bacon,3.51,108,BigBasket
+Cereal,11.59,80,BigBasket
+Eggs,12.8,167,BigBasket
+Sausage,8.65,42,Zepto
