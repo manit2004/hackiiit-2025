@@ -276,7 +276,7 @@ def load_products(filename="product_db.csv"):
 
 
 # Get expired products
-def get_expired_products(query: str, current_date=None) -> str:
+def get_expired_products(current_date=None) -> str:
     if current_date is None:
         current_date = datetime.today()
 
@@ -293,6 +293,7 @@ def create_expired_products_tool():
         description="Returns products that have expired.",
         function=get_expired_products,
         parameters={"query": {"type": "string", "description": "User's query to identify expired products."}},
+        required=["query"]
     )
 
 
