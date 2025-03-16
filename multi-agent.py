@@ -1192,6 +1192,8 @@ def create_shopping_assistant(tool_registry):
       - Checks which ingredients are missing in the pantry (product_db.csv).
       - For each missing ingredient, finds vendor options and returns the best price.
       - Consolidates the missing items into a shopping cart list.
+      - When the user confirms they have purchased the missing items, uses the add_product_tool
+        to add these items (with the current date as buying date and a random expiry date) into product_db.csv.
     """
     agent_config = AzureOpenAIAgentConfig(
         agent_name="shopping_assistant",
@@ -1207,6 +1209,7 @@ You are an intelligent Shopping Assistant dedicated to helping users manage thei
 3. Comparing the extracted ingredients with the user's pantry (recorded in product_db.csv) to identify missing ingredients.
 4. For each missing ingredient, searching the marketplace (grocery_db.csv) to find vendor options and determine the cheapest option.
 5. Compiling a comprehensive shopping cart list with the missing items, best prices, and vendor information.
+6. When the user indicates that they have purchased certain missing items, call the add_product_tool to add those items to product_db.csv, using the current date as the buying date and a randomly generated expiry date.
 
 **Tools Available:**
 1. **Meal Plan Range Tool (`meal_plan_range_tool`):**
@@ -1229,6 +1232,11 @@ You are an intelligent Shopping Assistant dedicated to helping users manage thei
    - **Input:** Ingredient name.
    - **Output:** A list of vendor options with prices, with the cheapest option clearly indicated.
 
+5. **Add Product Tool (`add_product_tool`):**
+   - Adds a new product to product_db.csv using the current date as the buying date and a random expiry date.
+   - **Input:** Product name and quantity.
+   - **Output:** Confirmation that the product has been added.
+
 **Guidelines:**
 - When assisting the user:
   1. Use the `meal_plan_range_tool` to get the meal plans for the requested number of days.
@@ -1236,10 +1244,12 @@ You are an intelligent Shopping Assistant dedicated to helping users manage thei
   3. Determine missing ingredients using the `missing_ingredients_tool`.
   4. Find the cheapest option for each missing ingredient with the `cheapest_option_tool`.
   5. Compile a shopping cart with all missing ingredients, their best prices, and vendor information.
-- Store the user's message and retrieve the conversation context before generating your final response.
+  6. If the user confirms that they have purchased some or all missing items, call the `add_product_tool` for each purchased item to update the pantry database (product_db.csv).
+
+- Always begin by storing the user's message and retrieving the conversation context before generating your final response.
 - Provide clear, actionable, and concise output to guide the user in their grocery purchasing decisions.
 
-Your goal is to help the user minimize food waste and save money by purchasing only the necessary items at the best available prices.
+Your ultimate goal is to help the user minimize food waste and save money by ensuring they purchase only the necessary items at the best available prices.
         """,
         api_key=os.getenv("OPENAI_API_KEY"),
         api_base="https://aoi-iiit-hack-2.openai.azure.com/",
@@ -1248,6 +1258,8 @@ Your goal is to help the user minimize food waste and save money by purchasing o
     )
     agent = AzureOpenAIAgent(config=agent_config)
     return agent
+
+
 
 def create_cook_agent(tool_registry):
     agent_config = AzureOpenAIAgentConfig(
@@ -1275,6 +1287,97 @@ Your goal is to accurately track consumption and maintain an updated inventory.
     )
     return AzureOpenAIAgent(config=agent_config)
 
+
+def create_add_product_tool():
+    add_product_tool = BaseTool(
+        name="add_product_tool",
+        description="Adds a new product to product_db.csv with the current date as buying date, a random expiry date, and the specified quantity.",
+        function=add_product_to_db,
+        parameters={
+            "product_name": {
+                "type": "string",
+                "description": "The name of the product to add."
+            },
+            "quantity": {
+                "type": "integer",
+                "description": "The quantity to set for the product."
+            }
+        },
+        required=["product_name", "quantity"]
+    )
+    return add_product_tool
+
+
+def add_product_to_db(product_name: str, quantity: int) -> str:
+    """
+    Adds a new product to product_db.csv with the given product name and quantity.
+    Uses the current date as the buying date and generates a random expiry date (between 5 and 15 days from today).
+    The CSV format is: product_id, product_name, buying_date, expiry_date, quantity.
+    
+    Args:
+        product_name (str): The name of the product to add.
+        quantity (int): The quantity to set for the product.
+        
+    Returns:
+        str: A message indicating success or failure.
+    """
+    from datetime import datetime, timedelta
+    import random
+    import csv
+
+    # Define file name
+    filename = "product_db.csv"
+    
+    # Get current date and format it
+    today = datetime.today()
+    buying_date = today.strftime("%Y-%m-%d")
+    
+    # Generate random expiry date: between 5 and 15 days from today
+    expiry_date = (today + timedelta(days=random.randint(5, 15))).strftime("%Y-%m-%d")
+    
+    # Load existing products to determine the next product_id
+    products = []
+    max_id = 0
+    try:
+        with open(filename, newline="") as csvfile:
+            reader = csv.DictReader(csvfile)
+            for row in reader:
+                products.append(row)
+                try:
+                    pid = int(row["product_id"])
+                    if pid > max_id:
+                        max_id = pid
+                except (ValueError, KeyError):
+                    continue
+    except FileNotFoundError:
+        # If file doesn't exist, we'll create a new one
+        pass
+
+    new_product_id = max_id + 1
+    
+    # Create the new product entry
+    new_product = {
+        "product_id": new_product_id,
+        "product_name": product_name,
+        "buying_date": buying_date,
+        "expiry_date": expiry_date,
+        "quantity": quantity
+    }
+    products.append(new_product)
+    
+    # Write all products back to the CSV file
+    fieldnames = ["product_id", "product_name", "buying_date", "expiry_date", "quantity"]
+    try:
+        with open(filename, "w", newline="") as csvfile:
+            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+            writer.writeheader()
+            for prod in products:
+                writer.writerow(prod)
+        return f"Product '{product_name}' added successfully with quantity {quantity} (Buying Date: {buying_date}, Expiry Date: {expiry_date})."
+    except Exception as e:
+        return f"An error occurred while updating the database: {e}"
+
+
 def setup_agent():
     """
     Set up the AzureOpenAI agent with memory capabilities and return the orchestrator and agent.
@@ -1297,6 +1400,8 @@ def setup_agent():
     tool_registry.register_tool(create_cheapest_option_tool())
     tool_registry.register_tool(create_low_stock_products_tool())
     tool_registry.register_tool(create_update_product_quantity_tool())
+    tool_registry.register_tool(create_add_product_tool())
+
 
 
     # Set up registry and orchestrator
