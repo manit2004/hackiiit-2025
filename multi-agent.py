@@ -387,6 +387,64 @@ def get_low_stock_products(threshold=5, filename="product_db.csv"):
     return "\n".join(low_stock) or "No products are running low."
 
 
+def update_product_quantity(product_name: str, new_quantity: int) -> str:
+    """
+    Updates the quantity of all products whose name matches the given product_name
+    in the product_db.csv file to the new_quantity.
+
+    Args:
+        product_name (str): The product name (or partial name) to search for.
+        new_quantity (int): The new quantity to set.
+
+    Returns:
+        str: A message indicating the update result.
+    """
+    products = load_products()
+    if not products:
+        return "No products loaded from the database."
+
+    updated = False
+    for product in products:
+        if product_name.lower() in product["product_name"].lower():
+            product["quantity"] = new_quantity
+            updated = True
+
+    if not updated:
+        return f"No product found matching '{product_name}'."
+
+    # Write the updated products list back to the CSV file.
+    fieldnames = ["product_id", "product_name", "buying_date", "expiry_date", "quantity"]
+    try:
+        with open("product_db.csv", "w", newline="") as csvfile:
+            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+            writer.writeheader()
+            for product in products:
+                writer.writerow(product)
+        return f"Quantity for product(s) matching '{product_name}' updated to {new_quantity}."
+    except Exception as e:
+        return f"An error occurred while updating the database: {e}"
+
+
+def create_update_product_quantity_tool():
+    update_tool = BaseTool(
+        name="update_product_quantity_tool",
+        description="Updates the quantity of a product (or products) in product_db.csv that match the given product name to the specified new quantity.",
+        function=update_product_quantity,
+        parameters={
+            "product_name": {
+                "type": "string",
+                "description": "The name (or partial name) of the product to update."
+            },
+            "new_quantity": {
+                "type": "integer",
+                "description": "The new quantity to set for the product."
+            }
+        },
+        required=["product_name", "new_quantity"]
+    )
+    return update_tool
+
+
 def create_low_stock_products_tool():
     return BaseTool(
         name="low_stock_products_tool",
@@ -697,6 +755,44 @@ def create_generate_recipe_tool():
         required=["food_item"]
     )
     return recipe_tool
+
+def get_ingredients(food_item: str) -> str:
+    """
+    Uses the OpenAI API to get only the ingredients required for the given food item.
+
+    Args:
+        food_item (str): The name of the food item.
+
+    Returns:
+        str: A list of ingredients with quantities.
+    """
+    prompt = (
+        f"List the ingredients and their quantities required to make {food_item}. "
+    )
+
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-4",
+            messages=[
+                {"role": "system", "content": "You are a knowledgeable culinary assistant."},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.7,
+        )
+        ingredients = response['choices'][0]['message']['content'].strip()
+        return ingredients
+    except Exception as e:
+        return f"An error occurred while fetching the ingredients: {e}"
+
+
+def create_get_ingredients_tool():
+    return BaseTool(
+        name="get_ingredients_tool",
+        description="Fetches a list of ingredients required for a given food item.",
+        function=get_ingredients,
+        parameters={"food_item": {"type": "string", "description": "The name of the food item."}},
+        required=["food_item"]
+    )
 
 
 def create_meal_recipe_agent(tool_registry):
@@ -1153,6 +1249,31 @@ Your goal is to help the user minimize food waste and save money by purchasing o
     agent = AzureOpenAIAgent(config=agent_config)
     return agent
 
+def create_cook_agent(tool_registry):
+    agent_config = AzureOpenAIAgentConfig(
+        agent_name="cook_agent",
+        description="An agent that estimates ingredient usage and updates product quantities after cooking.",
+        model_name="gpt-4o",
+        agent_type="ChatAgent",
+        tool_registry=tool_registry,
+        system_prompt="""
+**Role and Objective:**
+You are an intelligent Cook Assistant Agent that helps users track ingredient usage and update inventory after cooking.
+
+**Steps to Follow:**
+1. Use the `get_ingredients_tool` to fetch the list of ingredients and their quantities for the dish cooked.
+2. For each ingredient, use the `product_details_tool` to check the current quantity in the inventory.
+3. Estimate the quantity used and calculate the updated quantity.
+4. Use the `update_product_quantity_tool` to update the quantity in the database.
+
+Your goal is to accurately track consumption and maintain an updated inventory.
+        """,
+        api_key=os.getenv("OPENAI_API_KEY"),
+        api_base="https://aoi-iiit-hack-2.openai.azure.com/",
+        api_version=os.getenv("AZURE_OPENAI_API_VERSION") or "2024-12-01-preview",
+        organization=None
+    )
+    return AzureOpenAIAgent(config=agent_config)
 
 def setup_agent():
     """
@@ -1175,6 +1296,7 @@ def setup_agent():
     tool_registry.register_tool(create_missing_ingredients_tool())
     tool_registry.register_tool(create_cheapest_option_tool())
     tool_registry.register_tool(create_low_stock_products_tool())
+    tool_registry.register_tool(create_update_product_quantity_tool())
 
 
     # Set up registry and orchestrator
@@ -1183,9 +1305,12 @@ def setup_agent():
     onboarding_agent = create_onboarding_agent(tool_registry)
     meal_recipe_agent = create_meal_recipe_agent(tool_registry)
     shopping_assistant_agent = create_shopping_assistant(tool_registry)
+    cook_agent = create_cook_agent(tool_registry)
+
     agent_registry.register_agent(inventory_agent)
     agent_registry.register_agent(onboarding_agent)
     agent_registry.register_agent(meal_recipe_agent)
+    agent_registry.register_agent(cook_agent)
     agent_registry.register_agent(create_alternate_meal_agent(tool_registry))
     agent_registry.register_agent(shopping_assistant_agent)
 
