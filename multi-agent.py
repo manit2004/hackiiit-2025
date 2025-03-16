@@ -57,217 +57,310 @@ def import_to_csv_tool():
         )
     return import_to_csv_tool
 
-def product_inventory_query(query: str) -> str:
-    """
-    Reads the product database from a CSV file and answers queries related to product expiry.
+# def product_inventory_query(query: str) -> str:
+#     """
+#     Reads the product database from a CSV file and answers queries related to product expiry.
 
-    Supported queries:
-      - "how many products will expire in X day(s)" (exactly X days)
-      - "list all products and in how many days they will expire"
-      - "how many products are expired"
-      - "which products are fresh"
+#     Supported queries:
+#       - "how many products will expire in X day(s)" (exactly X days)
+#       - "list all products and in how many days they will expire"
+#       - "how many products are expired"
+#       - "which products are fresh"
+
+#     Args:
+#         query (str): The user's natural language query.
+
+#     Returns:
+#         str: An answer based on the product data.
+#     """
+#     # Load product data from CSV
+#     products = []
+#     try:
+#         with open("product_db.csv", newline="") as csvfile:
+#             reader = csv.DictReader(csvfile)
+#             for row in reader:
+#                 row["quantity"] = int(row["quantity"])
+#                 products.append(row)
+#     except FileNotFoundError:
+#         return "Product database not found. Please ensure 'product_db.csv' exists in the working directory."
+
+#     # For demonstration, use a fixed current date.
+#     # In a real application, you might use: current_date = datetime.today()
+#     current_date = datetime.strptime("2025-03-16", "%Y-%m-%d")
+#     query_lower = query.lower().strip()
+
+#     # Branch 1: Query for products expiring in exactly X days
+#     match = re.search(r"expire in (\d+)\s*day[s]?", query_lower)
+#     if match:
+#         days = int(match.group(1))
+#         count = 0
+#         expiring_products = []
+#         for product in products:
+#             expiry_date = datetime.strptime(product["expiry_date"], "%Y-%m-%d")
+#             days_until_expiry = (expiry_date - current_date).days
+#             # Only include products that expire exactly in the specified number of days
+#             if days_until_expiry == days:
+#                 count += product["quantity"]
+#                 expiring_products.append(
+#                     f"{product['product_name']} (Quantity: {product['quantity']}, Expires in: {days_until_expiry} day{'s' if days_until_expiry != 1 else ''})"
+#                 )
+#         if expiring_products:
+#             product_list_str = "\n".join(f"- {item}" for item in expiring_products)
+#             return f"There are {count} units of products that will expire in exactly {days} day{'s' if days != 1 else ''}. Here is the list:\n{product_list_str}"
+#         else:
+#             return f"No products will expire in exactly {days} day{'s' if days != 1 else ''}."
+
+#     # Branch 2: Query to list all products with their days until expiry
+#     elif "list all" in query_lower and "expire" in query_lower:
+#         lines = []
+#         for product in products:
+#             expiry_date = datetime.strptime(product["expiry_date"], "%Y-%m-%d")
+#             days_until_expiry = (expiry_date - current_date).days
+#             lines.append(f"{product['product_name']} (Quantity: {product['quantity']}, Expires in: {days_until_expiry} day{'s' if days_until_expiry != 1 else ''})")
+#         if lines:
+#             return "Products and their expiry info:\n" + "\n".join(lines)
+#         else:
+#             return "No product data available."
+
+#     # Branch 3: Query for expired products
+#     elif "expired" in query_lower:
+#         count = 0
+#         for product in products:
+#             expiry_date = datetime.strptime(product["expiry_date"], "%Y-%m-%d")
+#             if expiry_date < current_date:
+#                 count += product["quantity"]
+#         return f"{count} units of products are already expired."
+
+#     # Branch 4: Query for fresh products
+#     elif "fresh" in query_lower:
+#         # Define 'fresh' as having more than a threshold (e.g., 5 days) before expiry.
+#         threshold_days = 5
+#         fresh_products = set()
+#         for product in products:
+#             expiry_date = datetime.strptime(product["expiry_date"], "%Y-%m-%d")
+#             if (expiry_date - current_date).days > threshold_days:
+#                 fresh_products.add(product["product_name"])
+#         if fresh_products:
+#             fresh_list = ", ".join(sorted(fresh_products))
+#             return f"Fresh products (with more than {threshold_days} days until expiry): {fresh_list}"
+#         else:
+#             return "No products meet the 'fresh' criteria."
+
+#     else:
+#         return "Query not recognized. Please ask about product expiry or freshness."
+
+
+# def create_product_inventory_query_tool():
+#     product_inventory_query_tool = BaseTool(
+#     name="product_inventory_query_tool",
+#     description="Tool to answer queries about product expiry and freshness using the product database.",
+#     function=product_inventory_query,
+#     parameters={
+#         "query": {
+#             "type": "string",
+#             "description": "A query about product expiry or freshness, e.g., 'How many products will expire in 7 days?'"
+#         }
+#     },
+#     required=["query"]
+# )
+#     return product_inventory_query_tool
+
+# def list_all_products_with_expiry() -> str:
+#     """
+#     Reads the product database from a CSV file and returns a formatted list of all products with their expiry dates.
+
+#     Returns:
+#         str: A formatted string listing each product with its product ID, name, buying date, expiry date, and quantity.
+#     """
+#     products = []
+#     try:
+#         with open("product_db.csv", newline="") as csvfile:
+#             reader = csv.DictReader(csvfile)
+#             for row in reader:
+#                 row["quantity"] = int(row["quantity"])
+#                 products.append(row)
+#     except FileNotFoundError:
+#         return "Product database not found. Please ensure 'product_db.csv' exists in the working directory."
+
+#     if not products:
+#         return "No product data available."
+
+#     lines = []
+#     for product in products:
+#         line = (
+#             f"Product ID: {product['product_id']}, "
+#             f"Name: {product['product_name']}, "
+#             f"Buying Date: {product['buying_date']}, "
+#             f"Expiry Date: {product['expiry_date']}, "
+#             f"Quantity: {product['quantity']}"
+#         )
+#         lines.append(line)
+
+#     return "Product List with Expiry Dates:\n" + "\n".join(lines)
+
+
+# def create_list_all_products_with_expiry_tool():
+#     list_products_tool = BaseTool(
+#     name="list_products_with_expiry_tool",
+#     description="Lists all products with their expiry dates and details from the product database.",
+#     function=list_all_products_with_expiry,
+#     parameters={},  # No parameters required
+#     required=[]
+# )
+
+# # Then register this tool with your tool registry:
+#     return list_products_tool
+
+
+
+
+# def get_product_details(product_query: str) -> str:
+#     """
+#     Reads the product database from a CSV file and returns details for the product(s)
+#     that match the provided product_query (case-insensitive).
+
+#     Args:
+#         product_query (str): The name (or partial name) of the product to search for.
+
+#     Returns:
+#         str: A formatted string containing the details of matching products, or a message if none found.
+#     """
+#     products = []
+#     try:
+#         with open("product_db.csv", newline="") as csvfile:
+#             reader = csv.DictReader(csvfile)
+#             for row in reader:
+#                 row["quantity"] = int(row["quantity"])
+#                 # If the product name contains the search query (case-insensitive)
+#                 if product_query.lower() in row["product_name"].lower():
+#                     products.append(row)
+#     except FileNotFoundError:
+#         return "Product database not found. Please ensure 'product_db.csv' exists in the working directory."
+
+#     if not products:
+#         return f"No details found for product '{product_query}'."
+#     else:
+#         details_lines = []
+#         for product in products:
+#             details_lines.append(
+#                 f"Product ID: {product['product_id']}, "
+#                 f"Name: {product['product_name']}, "
+#                 f"Buying Date: {product['buying_date']}, "
+#                 f"Expiry Date: {product['expiry_date']}, "
+#                 f"Quantity: {product['quantity']}"
+#             )
+#         return "\n".join(details_lines)
+
+
+def load_products(filename="product_db.csv"):
+    """
+    Load product data from CSV file.
 
     Args:
-        query (str): The user's natural language query.
+        filename (str): The path to the CSV file.
 
     Returns:
-        str: An answer based on the product data.
+        list: A list of product dictionaries.
     """
-    # Load product data from CSV
     products = []
     try:
-        with open("product_db.csv", newline="") as csvfile:
+        with open(filename, newline="") as csvfile:
             reader = csv.DictReader(csvfile)
             for row in reader:
                 row["quantity"] = int(row["quantity"])
                 products.append(row)
     except FileNotFoundError:
-        return "Product database not found. Please ensure 'product_db.csv' exists in the working directory."
+        raise FileNotFoundError("Product database not found. Please ensure 'product_db.csv' exists.")
 
-    # For demonstration, use a fixed current date.
-    # In a real application, you might use: current_date = datetime.today()
-    current_date = datetime.strptime("2025-03-16", "%Y-%m-%d")
-    query_lower = query.lower().strip()
-
-    # Branch 1: Query for products expiring in exactly X days
-    match = re.search(r"expire in (\d+)\s*day[s]?", query_lower)
-    if match:
-        days = int(match.group(1))
-        count = 0
-        expiring_products = []
-        for product in products:
-            expiry_date = datetime.strptime(product["expiry_date"], "%Y-%m-%d")
-            days_until_expiry = (expiry_date - current_date).days
-            # Only include products that expire exactly in the specified number of days
-            if days_until_expiry == days:
-                count += product["quantity"]
-                expiring_products.append(
-                    f"{product['product_name']} (Quantity: {product['quantity']}, Expires in: {days_until_expiry} day{'s' if days_until_expiry != 1 else ''})"
-                )
-        if expiring_products:
-            product_list_str = "\n".join(f"- {item}" for item in expiring_products)
-            return f"There are {count} units of products that will expire in exactly {days} day{'s' if days != 1 else ''}. Here is the list:\n{product_list_str}"
-        else:
-            return f"No products will expire in exactly {days} day{'s' if days != 1 else ''}."
-
-    # Branch 2: Query to list all products with their days until expiry
-    elif "list all" in query_lower and "expire" in query_lower:
-        lines = []
-        for product in products:
-            expiry_date = datetime.strptime(product["expiry_date"], "%Y-%m-%d")
-            days_until_expiry = (expiry_date - current_date).days
-            lines.append(f"{product['product_name']} (Quantity: {product['quantity']}, Expires in: {days_until_expiry} day{'s' if days_until_expiry != 1 else ''})")
-        if lines:
-            return "Products and their expiry info:\n" + "\n".join(lines)
-        else:
-            return "No product data available."
-
-    # Branch 3: Query for expired products
-    elif "expired" in query_lower:
-        count = 0
-        for product in products:
-            expiry_date = datetime.strptime(product["expiry_date"], "%Y-%m-%d")
-            if expiry_date < current_date:
-                count += product["quantity"]
-        return f"{count} units of products are already expired."
-
-    # Branch 4: Query for fresh products
-    elif "fresh" in query_lower:
-        # Define 'fresh' as having more than a threshold (e.g., 5 days) before expiry.
-        threshold_days = 5
-        fresh_products = set()
-        for product in products:
-            expiry_date = datetime.strptime(product["expiry_date"], "%Y-%m-%d")
-            if (expiry_date - current_date).days > threshold_days:
-                fresh_products.add(product["product_name"])
-        if fresh_products:
-            fresh_list = ", ".join(sorted(fresh_products))
-            return f"Fresh products (with more than {threshold_days} days until expiry): {fresh_list}"
-        else:
-            return "No products meet the 'fresh' criteria."
-
-    else:
-        return "Query not recognized. Please ask about product expiry or freshness."
+    return products
 
 
-def create_product_inventory_query_tool():
-    product_inventory_query_tool = BaseTool(
-    name="product_inventory_query_tool",
-    description="Tool to answer queries about product expiry and freshness using the product database.",
-    function=product_inventory_query,
-    parameters={
-        "query": {
-            "type": "string",
-            "description": "A query about product expiry or freshness, e.g., 'How many products will expire in 7 days?'"
-        }
-    },
-    required=["query"]
-)
-    return product_inventory_query_tool
+# Get expired products
+def get_expired_products(query: str, current_date=None) -> str:
+    if current_date is None:
+        current_date = datetime.today()
 
-def list_all_products_with_expiry() -> str:
-    """
-    Reads the product database from a CSV file and returns a formatted list of all products with their expiry dates.
+    products = load_products()
+    expired = [
+        product for product in products
+        if datetime.strptime(product["expiry_date"], "%Y-%m-%d") < current_date
+    ]
+    return "\n".join(f"{p['product_name']} (Quantity: {p['quantity']}, Expiry: {p['expiry_date']})" for p in expired) or "No expired products."
 
-    Returns:
-        str: A formatted string listing each product with its product ID, name, buying date, expiry date, and quantity.
-    """
-    products = []
-    try:
-        with open("product_db.csv", newline="") as csvfile:
-            reader = csv.DictReader(csvfile)
-            for row in reader:
-                row["quantity"] = int(row["quantity"])
-                products.append(row)
-    except FileNotFoundError:
-        return "Product database not found. Please ensure 'product_db.csv' exists in the working directory."
-
-    if not products:
-        return "No product data available."
-
-    lines = []
-    for product in products:
-        line = (
-            f"Product ID: {product['product_id']}, "
-            f"Name: {product['product_name']}, "
-            f"Buying Date: {product['buying_date']}, "
-            f"Expiry Date: {product['expiry_date']}, "
-            f"Quantity: {product['quantity']}"
-        )
-        lines.append(line)
-
-    return "Product List with Expiry Dates:\n" + "\n".join(lines)
+def create_expired_products_tool():
+    return BaseTool(
+        name="expired_products_tool",
+        description="Returns products that have expired.",
+        function=get_expired_products,
+        parameters={"query": {"type": "string", "description": "User's query to identify expired products."}},
+    )
 
 
-def create_list_all_products_with_expiry_tool():
-    list_products_tool = BaseTool(
-    name="list_products_with_expiry_tool",
-    description="Lists all products with their expiry dates and details from the product database.",
-    function=list_all_products_with_expiry,
-    parameters={},  # No parameters required
-    required=[]
-)
+# Get products expiring within a threshold
+def get_products_expiring_within(days: int, current_date=None) -> str:
+    if current_date is None:
+        current_date = datetime.today()
 
-# Then register this tool with your tool registry:
-    return list_products_tool
+    products = load_products()
+    threshold_date = current_date + timedelta(days=days)
+    expiring = [
+        product for product in products
+        if current_date <= datetime.strptime(product["expiry_date"], "%Y-%m-%d") <= threshold_date
+    ]
+    return "\n".join(f"{p['product_name']} (Quantity: {p['quantity']}, Expiry: {p['expiry_date']})" for p in expiring) or f"No products expiring within {days} days."
 
-
-
-
-def get_product_details(product_query: str) -> str:
-    """
-    Reads the product database from a CSV file and returns details for the product(s)
-    that match the provided product_query (case-insensitive).
-
-    Args:
-        product_query (str): The name (or partial name) of the product to search for.
-
-    Returns:
-        str: A formatted string containing the details of matching products, or a message if none found.
-    """
-    products = []
-    try:
-        with open("product_db.csv", newline="") as csvfile:
-            reader = csv.DictReader(csvfile)
-            for row in reader:
-                row["quantity"] = int(row["quantity"])
-                # If the product name contains the search query (case-insensitive)
-                if product_query.lower() in row["product_name"].lower():
-                    products.append(row)
-    except FileNotFoundError:
-        return "Product database not found. Please ensure 'product_db.csv' exists in the working directory."
-
-    if not products:
-        return f"No details found for product '{product_query}'."
-    else:
-        details_lines = []
-        for product in products:
-            details_lines.append(
-                f"Product ID: {product['product_id']}, "
-                f"Name: {product['product_name']}, "
-                f"Buying Date: {product['buying_date']}, "
-                f"Expiry Date: {product['expiry_date']}, "
-                f"Quantity: {product['quantity']}"
-            )
-        return "\n".join(details_lines)
+def create_products_expiring_within_tool():
+    return BaseTool(
+        name="products_expiring_within_tool",
+        description="Returns products expiring within a given threshold of days.",
+        function=get_products_expiring_within,
+        parameters={"days": {"type": "integer", "description": "Threshold in days."}},
+        required=["days"]
+    )
 
 
-def create_get_product_details_tool():
-    get_product_details_tool = BaseTool(
-    name="get_product_details_tool",
-    description="Retrieves details about a specific product from the product database. The search is case-insensitive.",
-    function=get_product_details,
-    parameters={
-        "product_query": {
-            "type": "string",
-            "description": "The name or partial name of the product to search for."
-        }
-    },
-    required=["product_query"]
-)
+# Get product details by name
+def get_product_details(query: str, product_name: str) -> str:
+    products = load_products()
+    details = [
+        product for product in products
+        if product_name.lower() in product["product_name"].lower()
+    ]
+    return "\n".join(
+        f"Product ID: {p['product_id']}, Name: {p['product_name']}, Quantity: {p['quantity']}, Buying Date: {p['buying_date']}, Expiry: {p['expiry_date']}"
+        for p in details
+    ) or f"No details found for product '{product_name}'."
 
-# Assuming you have a tool registry already set up, register the tool:
-    return get_product_details_tool
+def create_product_details_tool():
+    return BaseTool(
+        name="product_details_tool",
+        description="Returns details of a specific product.",
+        function=get_product_details,
+        parameters={"query": {"type": "string", "description": "The user's query."}, "product_name": {"type": "string", "description": "Name of the product."}},
+        required=["query", "product_name"]
+    )
+
+
+# Get fresh products
+def get_fresh_products(query: str, threshold_days=2, current_date=None) -> str:
+    if current_date is None:
+        current_date = datetime.today()
+
+    products = load_products()
+    fresh = [
+        product for product in products
+        if (datetime.strptime(product["expiry_date"], "%Y-%m-%d") - current_date).days > threshold_days
+    ]
+    return "\n".join(f"{p['product_name']} (Quantity: {p['quantity']}, Expiry: {p['expiry_date']})" for p in fresh) or "No fresh products."
+
+def create_fresh_products_tool():
+    return BaseTool(
+        name="fresh_products_tool",
+        description="Returns fresh products with a specified freshness threshold.",
+        function=get_fresh_products,
+        parameters={"query": {"type": "string", "description": "The user's query."}, "threshold_days": {"type": "integer", "description": "Number of days to consider as fresh."}},
+        required=["query"]
+    )
 
 
 def create_inventory_agent(tool_registry):
@@ -278,12 +371,40 @@ def create_inventory_agent(tool_registry):
         agent_type="ChatAgent",
         tool_registry=tool_registry,
         system_prompt="""
-            You are an interactive chat agent specializing in product inventory management.
-            You have access to a product database stored in CSV format and several tools to help answer user queries:
-            - Use the product_inventory_query tool to respond to questions such as "How many products will expire in X days?", "How many products are expired?", or "Which products are fresh?".
-            - Use the list_all_products_with_expiry tool to list all products along with their buying dates, expiry dates, and quantities.
-            - Use the get_product_details tool to retrieve detailed information about a specific product by name.
-            Always begin by storing the user's message and retrieving conversation context before generating your final response.
+            ### System Prompt for Inventory Agent
+                **Role and Objective:**
+                You are an intelligent Inventory Management Agent specializing in managing and tracking grocery products within a home. Your goal is to provide accurate information on product expiration, freshness, and availability.
+
+                ### Tools Available:
+                1. **Expired Products Tool (`expired_products_tool`):**
+                - Identifies products that have already expired.
+                - Input: User's query.
+                - Output: List of expired products with quantity and expiration date.
+
+                2. **Products Expiring Within Tool (`products_expiring_within_tool`):**
+                - Returns products that will expire within a specified number of days.
+                - Input: User's query and threshold in days.
+                - Output: List of products expiring within the threshold.
+
+                3. **Product Details Tool (`product_details_tool`):**
+                - Retrieves detailed information about a specific product by name.
+                - Input: User's query and product name.
+                - Output: Product ID, name, quantity, buying date, and expiration date.
+
+                4. **Fresh Products Tool (`fresh_products_tool`):**
+                - Lists products with sufficient freshness based on a threshold in days.
+                - Input: User's query and freshness threshold.
+                - Output: List of fresh products with quantity and expiration date.
+
+                ### Guidelines:
+                - Always store the user's message and retrieve conversation context before generating responses.
+                - Use the appropriate tool based on the user's query.
+                - If the user asks about expired products, call the `expired_products_tool`.
+                - For upcoming expiration inquiries, use `products_expiring_within_tool`.
+                - To provide product-specific details, use the `product_details_tool`.
+                - To show fresh products, utilize `fresh_products_tool`.
+
+                Your goal is to assist users in efficiently managing their grocery inventory while minimizing waste and optimizing usage.
         """,
         api_key=os.getenv("OPENAI_API_KEY"),
         api_base="https://aoi-iiit-hack-2.openai.azure.com/",  # Use default OpenAI API base
@@ -369,6 +490,56 @@ def create_onboarding_agent(tool_registry):
     return onboarding_agent
 
 
+def create_alternate_meal_agent(tool_registry):
+    agent_config = AzureOpenAIAgentConfig(
+        agent_name="alternate_meal_agent",
+        description="An intelligent agent for suggesting alternate meals based on pantry inventory.",
+        model_name="gpt-4o",
+        agent_type="ChatAgent",
+        tool_registry=tool_registry,
+        system_prompt="""
+            ### System Prompt for Alternate Meal Agent
+                **Role and Objective:**
+                You are an intelligent Meal Planning Agent that suggests alternate meals based on the user's pantry inventory.
+
+                ### Tools Available:
+
+                1. **Products Expiring Within Tool (`products_expiring_within_tool`):**
+                - Returns products that will expire within a specified number of days.
+                - Input: User's query and threshold in days.
+                - Output: List of products expiring within the threshold.
+
+                2. **Fresh Products Tool (`fresh_products_tool`):**
+                - Lists products with sufficient freshness based on a threshold in days.
+                - Input: User's query and freshness threshold.
+                - Output: List of fresh products with quantity and expiration date.
+
+                3. **Generate Recipe Tool (`generate_recipe_tool`):**
+                - Generates a recipe based on the dish suggested.
+                - Input: Dish name.
+                - Output: Step-by-step recipe instructions.
+
+                ### Guidelines:
+                - When the user asks for a meal suggestion, inquire if they want to use fresh products or those expiring within 5 days.
+                - Formulate a dish based on the selected option.
+                - If the user requests a recipe, use the `generate_recipe_tool` to provide a recipe for the suggested dish.
+                - Store the user's message and retrieve conversation context before generating responses.
+
+                Your goal is to help users make optimal use of pantry items and minimize food waste.
+        """,
+        api_key=os.getenv("OPENAI_API_KEY"),
+        api_base="https://aoi-iiit-hack-2.openai.azure.com/",  # Use default OpenAI API base
+        api_version=os.getenv("AZURE_OPENAI_API_VERSION") or "2024-12-01-preview",
+        organization=None  # Use default organization
+    )
+
+    # Create Azure OpenAI agent with memory capabilities
+    agent = AzureOpenAIAgent(
+        config=agent_config
+    )
+    return agent
+
+
 def create_classifier_agent(tool_registry):
     """Create a classifier agent for language and task detection."""
     config = AzureOpenAIAgentConfig(
@@ -406,18 +577,16 @@ def create_meal_plan_tool():
     return meal_plan_tool
 
 
-
-
 def get_meal_plan_for_day(day: str) -> str:
     """
     Reads the meal_plan.csv file and returns the meal plan for the given day.
-    
+
     The CSV is expected to have the following columns:
     Day, Breakfast, Lunch, Dinner
-    
+
     Args:
         day (str): The day for which to retrieve the meal plan (e.g., "Monday").
-        
+
     Returns:
         str: A formatted string with the meal plan details or an error message if not found.
     """
@@ -442,10 +611,10 @@ def get_meal_plan_for_day(day: str) -> str:
 def generate_recipe(food_item: str) -> str:
     """
     Uses the OpenAI API to generate a recipe for the given food item.
-    
+
     Args:
         food_item (str): The name of the food item.
-        
+
     Returns:
         str: A detailed recipe including ingredients and steps.
     """
@@ -453,7 +622,7 @@ def generate_recipe(food_item: str) -> str:
         f"Provide a detailed recipe for {food_item}. "
         "Include a list of ingredients with quantities and step-by-step instructions for preparation."
     )
-    
+
     # Make a call to the OpenAI API to generate the recipe
     try:
         response = openai.ChatCompletion.create(
@@ -468,7 +637,7 @@ def generate_recipe(food_item: str) -> str:
         return recipe
     except Exception as e:
         return f"An error occurred while generating the recipe: {e}"
-    
+
 
 
 
@@ -521,9 +690,9 @@ def update_pantry_and_shopping_list(dish: str, recipe: str, user_inventory_input
     Extracts ingredients from the recipe, compares them with the user's input,
     updates the pantry (product_db.csv) with items the user already has, and updates the shopping list (shopping_list.csv)
     with missing ingredients.
-    
+
     For new pantry items, generates a random expiry date (between 5 and 15 days from today) and uses today as the buying date.
-    
+
     Args:
         dish (str): The name of the dish.
         recipe (str): The generated recipe text (expected to include an "Ingredients:" section).
@@ -631,13 +800,13 @@ def setup_agent():
     """
     # Set up memory components
     tool_registry = setup_memory_components()
-    tool_registry.register_tool(create_product_inventory_query_tool())
-    tool_registry.register_tool(create_list_all_products_with_expiry_tool())
-    tool_registry.register_tool(create_get_product_details_tool())
+    tool_registry.register_tool(create_expired_products_tool())
+    tool_registry.register_tool(create_products_expiring_within_tool())
+    tool_registry.register_tool(create_product_details_tool())
+    tool_registry.register_tool(create_fresh_products_tool())
     tool_registry.register_tool(import_to_csv_tool())
     tool_registry.register_tool(create_generate_recipe_tool())
-    tool_registry.register_tool(create_meal_plan_tool()) 
-
+    tool_registry.register_tool(create_meal_plan_tool())
 
 
     # Set up registry and orchestrator
@@ -648,8 +817,9 @@ def setup_agent():
     agent_registry.register_agent(inventory_agent)
     agent_registry.register_agent(onboarding_agent)
     agent_registry.register_agent(meal_recipe_agent)
-    
-    
+    agent_registry.register_agent(create_alternate_meal_agent(tool_registry))
+
+
     orchestrator = SimpleOrchestrator(
         agent_registry=agent_registry,
         default_agent_name="chat_agent"
